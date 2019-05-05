@@ -22,6 +22,7 @@ char* ReadFile(const char* PATH, int *len){
     }
     if(buffer){
         *len = length;
+        // puts(buffer);
         return buffer;
     }
     else return NULL;

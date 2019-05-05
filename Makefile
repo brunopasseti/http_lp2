@@ -1,7 +1,7 @@
 
 GCC = gcc
 SRCDIR = src
-FLAGS = -O3 -lm -pthread -o 
+FLAGS = -lm -pthread -o 
 SRCS = $(wildcard $(SRCDIR)/*.c)
 FLAGSDEBUG = -g
 FLAGSDEBUG += $(FLAGS)

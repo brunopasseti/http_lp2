@@ -32,7 +32,7 @@ char *CSSheader = "HTTP/1.1 200 OK\nServer: BServer\nAccept-Ranges: bytes\nConte
 char *ICOheader = "HTTP/1.1 200 OK\nServer: BServer\nAccept-Ranges: bytes\nContent-Type: image/x-icon\n";
 char *JPEGheader = "HTTP/1.1 200 OK\nServer: BServer\nAccept-Ranges: bytes\nContent-Type: image/jpeg\n";
 char *PNGheader = "HTTP/1.1 200 OK\nServer: BServer\nAccept-Ranges: bytes\nContent-Type: image/png\n";
-char *NOTheader = "HTTP/1.1 404 NOT FOUND\nServer: BServer\nAccept-Ranges: bytes\nContent-Type: text/html\nContent-Length: 207\nConnection: Closed\n";
+char *NOTheader = "HTTP/1.1 404 NOT FOUND\nServer: BServer\nAccept-Ranges: bytes\nContent-Type: text/html\nContent-Length: 206\nConnection: Closed\n";
 char *BADheader = "HTTP/1.1 400 BAD REQUEST\nServer: BServer\nAccept-Ranges: bytes\nContent-Type: text/html\nContent-Length: 317\nConnection: Closed\n";
 char *Theader = "HTTP/1.1 200 OK\nServer: BServer\nAccept-Ranges: bytes\n";
 
@@ -84,7 +84,6 @@ void *get_in_addr(struct sockaddr *sa){
 void* handle_client(void* a){
     aux_t *aux = a;
     int fsd = aux->fsd;
-    // printf("fsd:%d\n", fsd);
     char *fileBuffer;
     char s[INET6_ADDRSTRLEN];
     char requestBuffer[REQUESTSIZE];
@@ -97,15 +96,18 @@ void* handle_client(void* a){
     if(fsd == -1)
         pthread_exit((void*)-1);
     recv(fsd, requestBuffer, REQUESTSIZE-1, 0);
-
+    // puts(requestBuffer);
     sem_wait(*(&aux->sem));
 
-    inet_ntop(aux->info_client.ss_family, (get_in_addr((struct sockaddr *)&aux->info_client)), s, sizeof s);
-
+    // printf("SSF: %u",(aux->info_client.ss_family));
+    if((inet_ntop(aux->info_client.ss_family, (get_in_addr((struct sockaddr *)&aux->info_client)), s, sizeof s)) == NULL){
+        // printf("================================ DEU ERRO ===================================");
+    }
+    // puts("PASSEIIIIIIIIIIIIIIIIIIIIIIIIi");
+    
     fputs(s,aux->log);
     fputs("\n",aux->log);
     fflush(aux->log);
-    printf("Recebendo request de: %s\n", s);
 
     if(requestBuffer[0] != 'G'){
         // puts("Entrei aqui post");
@@ -127,15 +129,15 @@ void* handle_client(void* a){
         fflush(aux->log);
 
         close(fsd);
+        sem_post(*(&aux->sem));
         pthread_exit((void*)-1);
     }else{
         name = getFileName(requestBuffer);
-        // puts(requestBuffer);
         strcat(path, name);
-        // puts(path);
         fileBuffer = ReadFile(path, &bytesSize);
         if(fileBuffer == NULL){
             free(fileBuffer);
+            bytesSize = 0;
             fileBuffer = ReadFile("./files/notfound.html", &bytesSize);
             strcpy(header,NOTheader);
             time_t t = time(NULL);
@@ -146,13 +148,16 @@ void* handle_client(void* a){
             strcat(date,buf);
             strcat(header,date);
             strcat(header,"\n");
+
             send(fsd, header, strlen(header), 0);
-            send(fsd, fileBuffer, bytesSize, 0);
-            free(fileBuffer);
+            bytes_sent = send(fsd, fileBuffer, bytesSize, 0);
+
             fputs(header,aux->log);
             fputs("\n",aux->log);
             fflush(aux->log);
+            recv(fsd, requestBuffer, REQUESTSIZE-1, 0);
             close(fsd);
+            sem_post(*(&aux->sem));
             pthread_exit((void*)-1);
         }
         
@@ -179,13 +184,14 @@ void* handle_client(void* a){
     strcat(date,buf);
     strcat(header,date);
     strcat(header,"\n");
+
     bytes_sent = send(fsd, header, strlen(header), 0);
     bytes_sent = send(fsd, fileBuffer, bytesSize, 0);
+
     fputs(header,aux->log);
     fputs("\n",aux->log);
     fflush(aux->log);
     sem_post(*(&aux->sem));
-    // printf("id: %d estou aqui final\n", aux->id);
     free(fileBuffer);
     close(fsd);
 }
@@ -210,8 +216,10 @@ int main(int argc, char const *argv[]){
     pthread_t threads[100];
     aux_t info[100];
     while(1){
-         if(tcount == 100) tcount = 0;
+        if(tcount == 100) tcount = 0;
+        // puts("to aqui7");
         new_fd = accept(sockfd, (struct sockaddr *)&their_addr, &addr_size);
+
         if(new_fd != -1){
             info[tcount].info_client = their_addr;
             info[tcount].log = LOGFILE;
@@ -221,6 +229,7 @@ int main(int argc, char const *argv[]){
             int nt = pthread_create(&threads[tcount], NULL, handle_client, (void*) &info[tcount]);
             tcount++;
         }
+
        
     }
     close(sockfd);
