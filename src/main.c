@@ -97,17 +97,20 @@ void* handle_client(void* a){
         pthread_exit((void*)-1);
     recv(fsd, requestBuffer, REQUESTSIZE-1, 0);
     // puts(requestBuffer);
-    sem_wait(*(&aux->sem));
-
-    // printf("SSF: %u",(aux->info_client.ss_family));
     if((inet_ntop(aux->info_client.ss_family, (get_in_addr((struct sockaddr *)&aux->info_client)), s, sizeof s)) == NULL){
         // printf("================================ DEU ERRO ===================================");
     }
+    sem_wait(*(&aux->sem));
+    fputs(s, aux->log);
+    fputs("\n",aux->log);
+	fputs(requestBuffer,aux->log);
+    fflush(aux->log);    
+    sem_post(*(&aux->sem));
+    // printf("SSF: %u",(aux->info_client.ss_family));
+
     // puts("PASSEIIIIIIIIIIIIIIIIIIIIIIIIi");
     
-    fputs(s,aux->log);
-    fputs("\n",aux->log);
-    fflush(aux->log);
+
 
     if(requestBuffer[0] != 'G'){
         // puts("Entrei aqui post");
@@ -124,12 +127,12 @@ void* handle_client(void* a){
         send(fsd, header, strlen(header), 0);
         send(fsd, fileBuffer, bytesSize, 0);
         free(fileBuffer);
-        fputs(header,aux->log);
-        fputs("\n",aux->log);
-        fflush(aux->log);
+        // fputs(header,aux->log);
+        // fputs("\n",aux->log);
+        // fflush(aux->log);
 
         close(fsd);
-        sem_post(*(&aux->sem));
+
         pthread_exit((void*)-1);
     }else{
         name = getFileName(requestBuffer);
@@ -152,12 +155,12 @@ void* handle_client(void* a){
             send(fsd, header, strlen(header), 0);
             bytes_sent = send(fsd, fileBuffer, bytesSize, 0);
 
-            fputs(header,aux->log);
-            fputs("\n",aux->log);
-            fflush(aux->log);
+            // fputs(header,aux->log);
+            // fputs("\n",aux->log);
+            // fflush(aux->log);
             recv(fsd, requestBuffer, REQUESTSIZE-1, 0);
             close(fsd);
-            sem_post(*(&aux->sem));
+
             pthread_exit((void*)-1);
         }
         
@@ -188,10 +191,10 @@ void* handle_client(void* a){
     bytes_sent = send(fsd, header, strlen(header), 0);
     bytes_sent = send(fsd, fileBuffer, bytesSize, 0);
 
-    fputs(header,aux->log);
-    fputs("\n",aux->log);
-    fflush(aux->log);
-    sem_post(*(&aux->sem));
+    // fputs(header,aux->log);
+    // fputs("\n",aux->log);
+    // fflush(aux->log);
+
     free(fileBuffer);
     close(fsd);
 }
@@ -199,11 +202,21 @@ void* handle_client(void* a){
 
 
 int main(int argc, char const *argv[]){
+    char port[16];
+    char buff[32];
+    if(argc == 1){
+        puts("Missing port, using default port 3333. Usage:");
+        sprintf(buff,"%s PORT\n\n", argv[0]);
+        puts(buff);
+        strcpy(port, PORT);
+    }else{
+        strcpy(port, argv[1]);
+    }
     if(sem_init(&semafaro, 0, 1)){
         printf("Erro semafaro");
         return 255;
     }
-    int sockfd = setupServer(PORT);
+    int sockfd = setupServer(port);
     listen(sockfd, BACKLOG);
     // printf("%d\n", sockfd);
     struct sockaddr_storage their_addr;
@@ -215,6 +228,8 @@ int main(int argc, char const *argv[]){
     int tcount = 0;
     pthread_t threads[100];
     aux_t info[100];
+    sprintf(buff,"Running server in port %s", port);
+    puts(buff);
     while(1){
         if(tcount == 100) tcount = 0;
         // puts("to aqui7");
